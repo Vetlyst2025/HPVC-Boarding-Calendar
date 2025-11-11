@@ -1,0 +1,5 @@
+{
+  "name": "Veterinary Boarding Calendar",
+  "description": "An application for veterinary clinics to track animals in their boarding facility using an interactive calendar. It allows staff to manage upcoming and current reservations and generate daily summaries with AI.",
+  "requestFramePermissions": []
+}
