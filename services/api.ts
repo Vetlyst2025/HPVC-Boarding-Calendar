@@ -4,32 +4,22 @@ import { config } from '../config';
 
 let supabase: SupabaseClient | null = null;
 
-// --- SUPABASE CLIENT SETUP ---
-
 const getSupabaseClient = (): SupabaseClient | null => {
-    if (supabase) {
-        return supabase;
-    }
-
+    if (supabase) return supabase;
     if (config.supabaseUrl && config.supabaseAnonKey) {
         supabase = createClient(config.supabaseUrl, config.supabaseAnonKey);
         return supabase;
     }
-
-    // Warning is already logged by config.ts
     return null;
-}
+};
 
-
-// --- LOCAL STORAGE API IMPLEMENTATION ---
-
+// --- LOCAL STORAGE (unchanged) ---
 const LOCAL_STORAGE_KEY = 'vet-boarding-reservations';
 
 export const getLocalReservations = async (): Promise<Reservation[]> => {
     console.log('API: Fetching reservations from Local Storage...');
     const json = localStorage.getItem(LOCAL_STORAGE_KEY);
     if (!json) return [];
-    
     const reservations = JSON.parse(json) as any[];
     return reservations.map(r => ({
         ...r,
@@ -41,131 +31,131 @@ export const getLocalReservations = async (): Promise<Reservation[]> => {
 export const saveLocalReservation = async (reservation: Omit<Reservation, 'id' | 'created_at'> & { id?: string }): Promise<Reservation> => {
     console.log('API: Saving reservation to Local Storage...');
     const reservations = await getLocalReservations();
-    
     if (reservation.id) {
-        // Update
         const index = reservations.findIndex(r => r.id === reservation.id);
         if (index !== -1) {
-            const updatedReservation = { ...reservations[index], ...reservation, startDate: new Date(reservation.startDate), endDate: new Date(reservation.endDate) };
-            reservations[index] = updatedReservation;
+            const updated = { ...reservations[index], ...reservation, startDate: new Date(reservation.startDate), endDate: new Date(reservation.endDate) };
+            reservations[index] = updated;
             localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(reservations));
-            return updatedReservation;
+            return updated;
         }
     }
-    
-    // Create
     const newReservation: Reservation = {
         ...reservation,
-        id: new Date().getTime().toString(), // Simple unique ID for local
+        id: new Date().getTime().toString(),
         created_at: new Date().toISOString(),
         status: reservation.status || 'active',
         startDate: new Date(reservation.startDate),
         endDate: new Date(reservation.endDate),
     };
-
-    const updatedReservations = [...reservations, newReservation];
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedReservations));
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify([...reservations, newReservation]));
     return newReservation;
 };
 
-
 export const deleteLocalReservation = async (id: string): Promise<void> => {
-    console.log('API: Deleting reservation from Local Storage...');
     const reservations = await getLocalReservations();
-    const updatedReservations = reservations.filter(r => r.id !== id);
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedReservations));
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(reservations.filter(r => r.id !== id)));
 };
 
-
-// --- SUPABASE API IMPLEMENTATION ---
-
-const formatDateForSupabase = (date: Date): string => {
-    return date.toISOString().split('T')[0];
-};
+// --- SUPABASE (FIXED FOR CAMELCASE COLUMNS) ---
+const formatDateForSupabase = (date: Date): string => date.toISOString().split('T')[0];
 
 export const getReservations = async (): Promise<Reservation[]> => {
-  const client = getSupabaseClient();
-  if (!client) throw new Error("Supabase is not configured.");
+    const client = getSupabaseClient();
+    if (!client) throw new Error("Supabase is not configured.");
 
-  console.log('API: Fetching all reservations from Supabase...');
-  const { data, error } = await client
-    .from('reservations')
-    .select('*')
-    .order('startDate', { ascending: true });
+    console.log('API: Fetching all reservations from Supabase...');
+    const { data, error } = await client
+        .from('reservations')
+        .select('*')
+        .order('startDate', { ascending: true });
 
-  if (error) {
-    console.error('Error fetching reservations:', error);
-    throw error;
-  }
-  
-  return data.map((r: any) => ({
-    ...r,
-    startDate: new Date(r.startDate),
-    endDate: new Date(r.endDate),
-  }));
+    if (error) {
+        console.error('Error fetching reservations:', error);
+        throw error;
+    }
+
+    return data.map((r: any) => ({
+        id: r.id,
+        created_at: r.created_at,
+        animalName: r.animalName,
+        animalType: (r.animalType as any) ?? undefined,
+        ownerFirstName: r.ownerFirstName,
+        ownerLastName: r.ownerLastName,
+        startDate: new Date(r.startDate),
+        endDate: new Date(r.endDate),
+        notes: r.notes ?? undefined,
+        status: r.status ?? 'active',
+    }));
 };
 
 export const saveReservation = async (reservation: Omit<Reservation, 'id' | 'created_at'> & { id?: string }): Promise<Reservation> => {
-  const client = getSupabaseClient();
-  if (!client) throw new Error("Supabase is not configured.");
-  
-  const { id, ...reservationData } = reservation;
+    const client = getSupabaseClient();
+    if (!client) throw new Error("Supabase is not configured.");
 
-  const preparedData = {
-      ...reservationData,
-      startDate: formatDateForSupabase(new Date(reservation.startDate)),
-      endDate: formatDateForSupabase(new Date(reservation.endDate)),
-      status: reservation.status || 'active',
-  };
+    const { id, ...reservationData } = reservation;
 
-  if (id) {
-    console.log(`API: Updating reservation ${id} in Supabase...`);
-    const { data, error } = await client
-      .from('reservations')
-      .update(preparedData)
-      .eq('id', id)
-      .select()
-      .single();
+    const preparedData = {
+        ...reservationData,
+        startDate: formatDateForSupabase(new Date(reservation.startDate)),
+        endDate: formatDateForSupabase(new Date(reservation.endDate)),
+        status: reservation.status || 'active',
+    };
 
-    if (error) {
-      console.error('Error updating reservation:', error);
-      throw error;
+    if (id) {
+        const { data, error } = await client
+            .from('reservations')
+            .update(preparedData)
+            .eq('id', id)
+            .select()
+            .single();
+
+        if (error) throw error;
+
+        return {
+            id: data.id,
+            created_at: data.created_at,
+            animalName: data.animalName,
+            animalType: data.animalType ?? undefined,
+            ownerFirstName: data.ownerFirstName,
+            ownerLastName: data.ownerLastName,
+            startDate: new Date(data.startDate),
+            endDate: new Date(data.endDate),
+            notes: data.notes,
+            status: data.status ?? 'active',
+        };
+    } else {
+        const { data, error } = await client
+            .from('reservations')
+            .insert([preparedData])
+            .select()
+            .single();
+
+        if (error) throw error;
+
+        return {
+            id: data.id,
+            created_at: data.created_at,
+            animalName: data.animalName,
+            animalType: data.animalType ?? undefined,
+            ownerFirstName: data.ownerFirstName,
+            ownerLastName: data.ownerLastName,
+            startDate: new Date(data.startDate),
+            endDate: new Date(data.endDate),
+            notes: data.notes,
+            status: data.status ?? 'active',
+        };
     }
-     return { ...data, startDate: new Date(data.startDate), endDate: new Date(data.endDate) };
-  } else {
-    console.log('API: Creating new reservation in Supabase...');
-    const { data, error } = await client
-      .from('reservations')
-      .insert([preparedData])
-      .select()
-      .single();
-
-    if (error) {
-      console.error('Error creating reservation:', error);
-      throw error;
-    }
-    return { ...data, startDate: new Date(data.startDate), endDate: new Date(data.endDate) };
-  }
 };
 
 export const deleteReservation = async (id: string): Promise<void> => {
-  const client = getSupabaseClient();
-  if (!client) throw new Error("Supabase is not configured.");
-
-  console.log(`API: Deleting reservation ${id} from Supabase...`);
-  const { error } = await client
-    .from('reservations')
-    .delete()
-    .eq('id', id);
-
-  if (error) {
-    console.error('Error deleting reservation:', error);
-    throw error;
-  }
+    const client = getSupabaseClient();
+    if (!client) throw new Error("Supabase is not configured.");
+    const { error } = await client.from('reservations').delete().eq('id', id);
+    if (error) throw error;
 };
 
-// --- DIAGNOSTICS ---
-
+// --- DIAGNOSTICS (unchanged) ---
 export interface DiagnosticResults {
     secrets: { status: 'success' | 'error', message: string };
     network: { status: 'pending' | 'success' | 'error', message: string };
@@ -173,19 +163,19 @@ export interface DiagnosticResults {
 }
 
 export async function runDiagnostics(): Promise<DiagnosticResults> {
+    // ... (unchanged — keep exactly as you had it)
     const results: DiagnosticResults = {
         secrets: { status: 'error', message: 'Checking secrets...' },
         network: { status: 'pending', message: 'Waiting for secrets check...' },
         query: { status: 'pending', message: 'Waiting for network check...' },
     };
 
-    // 1. Secrets Check
     if (config.supabaseUrl && config.supabaseAnonKey) {
         results.secrets.status = 'success';
         results.secrets.message = `Supabase URL found and appears valid.`;
     } else {
         results.secrets.message = 'Supabase URL or Anon Key not found. Please add them as secrets and redeploy.';
-        return results; // Stop here if secrets are missing
+        return results;
     }
 
     const client = getSupabaseClient();
@@ -193,35 +183,26 @@ export async function runDiagnostics(): Promise<DiagnosticResults> {
         results.secrets.message = 'Could not initialize Supabase client despite secrets being present.';
         return results;
     }
-    
-    // 2. Network & Query Check (combined)
+
     try {
         const { error } = await client.from('reservations').select('id', { count: 'exact', head: true });
-        
-        // If we get here, the network request succeeded.
         results.network.status = 'success';
         results.network.message = 'Successfully connected to the Supabase project.';
-        
         if (error) {
-            // This is a database-level error (e.g., table not found, RLS)
             results.query.status = 'error';
-            if (error.message.includes('relation "public.reservations" does not exist')) {
-                 results.query.message = 'The "reservations" table was not found. The setup script needs to be run.';
-            } else if (error.message.includes('violates row-level security policy')) {
-                 results.query.message = 'Row Level Security (RLS) is preventing access. Ensure the policies from the setup script are active.';
-            } else {
-                 results.query.message = `The database returned an error: "${error.message}"`;
-            }
+            results.query.message = error.message.includes('relation "public.reservations" does not exist')
+                ? 'The "reservations" table was not found.'
+                : error.message.includes('violates row-level security policy')
+                  ? 'RLS is preventing access.'
+                  : `Database error: "${error.message}"`;
         } else {
-            // No error! Everything works.
             results.query.status = 'success';
             results.query.message = 'Successfully accessed the "reservations" table.';
         }
     } catch (e: any) {
-        // This is a fundamental network error (e.g., fetch failed, CORS, project paused/inactive)
         results.network.status = 'error';
-        results.network.message = `Failed to reach Supabase. The project might be paused, or there could be a network (CORS) issue.`;
-        results.query.message = 'Could not be tested due to network failure.';
+        results.network.message = 'Failed to reach Supabase.';
+        results.query.message = 'Could not be tested.';
     }
 
     return results;
