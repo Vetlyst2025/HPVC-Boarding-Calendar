@@ -10,13 +10,15 @@ export enum AnimalType {
 
 export interface Reservation {
   id: string;
-  animalName: string;
-  animalType: AnimalType;
-  ownerFirstName: string;
-  ownerLastName: string;
-  startDate: Date;
-  endDate: Date;
-  notes?: string;
-  status?: 'active' | 'checked-out';
   created_at?: string;
+
+  // These exact quoted names match your Supabase column names (CamelCase with capitals)
+  "animalName": string;
+  "animalType"?: AnimalType | null;
+  "ownerFirstName": string;
+  "ownerLastName": string;
+  "startDate": string | Date;   // Supabase returns string, we convert later
+  "endDate": string | Date;
+  notes?: string | null;
+  status?: 'active' | 'checked-out' | null;
 }
