@@ -52,11 +52,11 @@ interface ReservationListItemProps {
 }
 
 const ReservationListItem: React.FC<ReservationListItemProps> = ({ reservation, onEditReservation, onCheckOut, isDeparting }) => {
-  // SAFELY read CamelCase fields from Supabase
-  const animalName = reservation["animalName"] || 'Unknown Pet';
+  // THIS IS THE ONLY THING THAT MATTERS — 100% safe access
+  const animalName = reservation["animalName"] || "Unknown Pet";
   const animalType = (reservation["animalType"] as AnimalType) || AnimalType.Other;
-  const ownerFirstName = reservation["ownerFirstName"] || '';
-  const ownerLastName = reservation["ownerLastName"] || 'Unknown';
+  const ownerFirstName = reservation["ownerFirstName"] || "";
+  const ownerLastName = reservation["ownerLastName"] || "Unknown";
 
   return (
     <li 
@@ -67,7 +67,7 @@ const ReservationListItem: React.FC<ReservationListItemProps> = ({ reservation, 
         <div className="flex items-center gap-3 flex-1">
           <AnimalIcon animalType={animalType} className="h-6 w-6 text-cyan-600 flex-shrink-0" />
           <div className="flex-1">
-            <p className="font-semibold text-gray-800">
+            <p class Luna="font-semibold text-gray-800">
               {ownerLastName}, "{animalName}" <span className="text-sm font-normal text-gray-500">({animalType})</span>
             </p>
             <p className="text-sm text-gray-600">{ownerFirstName} {ownerLastName}</p>
@@ -76,9 +76,6 @@ const ReservationListItem: React.FC<ReservationListItemProps> = ({ reservation, 
         {isDeparting && (
           reservation.status === 'checked-out' ? (
             <span className="flex items-center gap-1 text-xs font-semibold text-green-700 bg-green-100 px-2 py-1 rounded-full">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-              </svg>
               Checked Out
             </span>
           ) : (
