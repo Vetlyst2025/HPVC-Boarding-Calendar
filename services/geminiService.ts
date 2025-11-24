@@ -26,7 +26,7 @@ export const generateDailySummary = async (
     );
   }
 
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
 
   const formattedDate = date.toLocaleDateString("en-US", {
     weekday: "long",
