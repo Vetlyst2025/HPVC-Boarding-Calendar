@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabaseClient';
+import { supabase } from '../lib/supabase';          // ← THIS IS THE CORRECT PATH IN YOUR REPO
 import { Reservation } from '../types';
 import Calendar from './components/Calendar';
 import ReservationModal from './components/ReservationModal';
@@ -25,29 +25,27 @@ function App() {
 
       if (error) {
         console.error('Error loading reservations:', error);
-        // Fallback to localStorage if offline or error
         const local = localStorage.getItem('reservations');
         if (local) {
           const parsed = JSON.parse(local);
           setReservations(parsed);
-          console.log('Loaded from localStorage:', parsed.length);
+          console.log('Fallback: loaded from localStorage', parsed.length);
         }
         return;
       }
 
       if (data && data.length > 0) {
-        console.log(`Loaded ${data.length} reservations from Supabase`);
+        console.log(`Successfully loaded ${data.length} reservations from Supabase`);
         setReservations(data);
         localStorage.setItem('reservations', JSON.stringify(data));
       } else {
-        console.log('No reservations in Supabase yet');
+        console.log('No reservations found in Supabase');
       }
     };
 
     loadAllReservations();
-  }, []); // Runs once when app loads
+  }, []); // ← Runs once when the app loads
 
-  // Save to Supabase + localStorage when adding/updating
   const saveReservation = async (reservation: Reservation) => {
     const { data, error } = await supabase
       .from('reservations')
@@ -57,7 +55,7 @@ function App() {
 
     if (error) {
       console.error('Supabase save error:', error);
-      alert('Failed to save. Check console.');
+      alert('Failed to save reservation');
       return;
     }
 
@@ -69,21 +67,6 @@ function App() {
     localStorage.setItem('reservations', JSON.stringify(updated));
     setIsModalOpen(false);
     setEditingReservation(null);
-  };
-
-  const handleDateSelect = (date: Date) => {
-    setSelectedDate(date);
-  };
-
-  const handleAddReservation = (date: Date) => {
-    setSelectedDate(date);
-    setEditingReservation(null);
-    setIsModalOpen(true);
-  };
-
-  const handleEditReservation = (reservation: Reservation) => {
-    setEditingReservation(reservation);
-    setIsModalOpen(true);
   };
 
   return (
@@ -99,18 +82,22 @@ function App() {
           <Calendar
             currentDate={currentDate}
             reservations={reservations}
-            onDateSelect={handleDateSelect}
-            onAddReservation={handleAddReservation}
-            onEditReservation={handleEditReservation}
+            onDateSelect={setSelectedDate}
+            onAddReservation={(date) => {
+              setSelectedDate(date);
+              setEditingReservation(null);
+              setIsModalOpen(true);
+            }}
+            onEditReservation={(res) => {
+              setEditingReservation(res);
+              setIsModalOpen(true);
+            }}
             selectedDate={selectedDate}
             matchingReservationIds={searchResults}
           />
         </div>
 
-        <DailyHandover
-          reservations={reservations}
-          selectedDate={selectedDate}
-        />
+        <DailyHandover reservations={reservations} selectedDate={selectedDate} />
 
         {isModalOpen && (
           <ReservationModal
